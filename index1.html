@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>معرض الكتب</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            direction: rtl;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            margin: 20px;
+        }
+        .container {
+            display: grid;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
+        }
+        .book {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            background-color: #fff;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer; /* تغيير شكل المؤشر عند المرور */
+        }
+        .book img {
+            width: 100%;
+            height: 450px; /* ارتفاع ثابت للصورة */
+            object-fit: cover; /* حافظ على أبعاد الصورة بدون قص */
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .book:hover {
+            transform: scale(1.05);
+        }
+        .book:hover h3 {
+            color: orange; /* تلوين اسم الكتاب باللون البرتقالي عند التمرير */
+        }
+        .book h3 {
+            margin: 10px 0;
+        }
+        .book p {
+            margin: 0 10px 10px;
+        }
+        .rating-container {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px;
+            border-radius: 5px;
+            text-align: center;
+            width: 30%;
+            z-index: 1;
+            color: white;
+            background: #4a4a4a59;
+        }
+        .stars img {
+            width: 15px;
+            height: 15px;
+        }
+        .stars span {
+            margin-left: 5px;
+            color: white; /* لون النص أبيض */
+            font-size: 16px;
+        }
+        /* تعريف عدد الأعمدة بناءً على حجم الشاشة */
+        @media (max-width: 440px) {
+            .container {
+                grid-template-columns: 1fr; /* عمود واحد */
+            }
+        }
+        @media (min-width: 441px) and (max-width: 880px) {
+            .container {
+                grid-template-columns: repeat(2, 1fr); /* عمودين */
+            }
+        }
+        @media (min-width: 881px) {
+            .container {
+                grid-template-columns: repeat(3, 1fr); /* 3 أعمدة */
+            }
+        }
+        .load-more-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .load-more-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .load-more-button:hover {
+            background-color: #0056b3;
+        }
+        .no-more-books-message {
+            font-size: 18px;
+            color: #333;
+        }
+        /* نمط لصورة الانتظار */
+        .loading-spinner {
+            display: none;
+            margin: 20px auto;
+        }
+            .loading-spinner img{
+             width: 100px;
+        }
+        .loading {
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading.visible {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-spinner" id="loading-spinner">
+        <img src="https://i.imgur.com/llF5iyg.gif" alt="جاري التحميل...">
+    </div>
+    <div class="container" id="books-container">
+        <!-- سيتم إضافة الكتب هنا بواسطة JavaScript -->
+    </div>
+    <div class="load-more-container" id="load-more-container" style="display: none;">
+        <button class="load-more-button" id="load-more-button">
+            <span>المزيد</span>
+            <div class="loading" id="button-loading">
+                <img src="https://i.imgur.com/llF5iyg.gif" alt="جاري التحميل...">
+            </div>
+        </button>
+    </div>
+    <script>
+        // الرابط لجلب البيانات من Google Sheets
+        const url = 'https://sheets.googleapis.com/v4/spreadsheets/1lVbvdEOsFkL9-agAS_EuS2mZn8Wd343Gw8uc8Pe4Bto/values/Data!A1:L1000?key=AIzaSyBhiqVypmyLHYPmqZYtvdSvxEopcLZBdYU';
+
+        let startIndex = 0;
+        const booksPerPage = 6;
+        let allBooks = [];
+
+        // تحويل التقييم إلى نجوم
+        function convertRatingToStars(rating) {
+            const fullStars = Math.floor(rating);
+            const halfStar = (rating - fullStars) >= 0.5;
+
+            let starsHTML = '';
+            for (let i = 0; i < fullStars; i++) {
+                starsHTML += `<img src="https://kimoooc.github.io/dd/icon/star.png" alt="نجمة ممتلئة"/>`;
+            }
+            if (halfStar) {
+                starsHTML += `<img src="https://kimoooc.github.io/dd/icon/halfStar.png" alt="نجمة نصف ممتلئة"/>`;
+            }
+            const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+            for (let i = 0; i < emptyStars; i++) {
+                starsHTML += `<img src="https://kimoooc.github.io/dd/icon/VidStar.png" alt="نجمة فارغة"/>`;
+            }
+            return starsHTML;
+        }
+
+        // جلب البيانات
+        function fetchBooks() {
+            document.getElementById('loading-spinner').style.display = 'block'; // إظهار صورة الانتظار
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // استخراج العناوين
+                    const headers = data.values[0];
+                    
+                    // إيجاد الفهارس المناسبة لكل من عنوان الكتاب، صورة الغلاف، واسم الكاتب، وتقييم الزوار
+                    const titleIndex = headers.indexOf("عنوان_الكتاب");
+                    const coverIndex = headers.indexOf("صورةالغلاف");
+                    const authorIndex = headers.indexOf("اسم_الكاتب");
+                    const ratingIndex = headers.indexOf("تقييم_الزوار");
+
+                    // استخراج القيم
+                    allBooks = data.values.slice(1).map(row => ({
+                        title: row[titleIndex],
+                        cover: row[coverIndex],
+                        author: row[authorIndex],
+                        rating: parseFloat(row[ratingIndex]) // تحويل التقييم إلى عدد عشري
+                    }));
+
+                    // عرض الكتب الأولى
+                    displayBooks();
+                    
+                    // عرض زر "المزيد" إذا كان هناك المزيد من الكتب
+                    const loadMoreContainer = document.getElementById('load-more-container');
+                    if (allBooks.length > booksPerPage) {
+                        loadMoreContainer.style.display = 'flex';
+                    }
+                })
+                .catch(error => console.error('Error fetching data:', error))
+                .finally(() => {
+                    document.getElementById('loading-spinner').style.display = 'none'; // إخفاء صورة الانتظار
+                });
+        }
+
+        // عرض الكتب
+        function displayBooks() {
+            const container = document.getElementById('books-container');
+            const buttonLoading = document.getElementById('button-loading');
+            buttonLoading.classList.add('visible'); // إظهار صورة الانتظار في الزر
+
+            for (let i = startIndex; i < Math.min(startIndex + booksPerPage, allBooks.length); i++) {
+                const book = allBooks[i];
+                const bookElement = document.createElement('div');
+                bookElement.className = 'book';
+                bookElement.innerHTML = `
+                    <img src="${book.cover}" alt="${book.title}"/>
+                    <div class="rating-container">
+                        <div class="stars">${convertRatingToStars(book.rating)}</div>
+                        <span>${book.rating}</span>
+                    </div>
+                    <h3>${book.title}</h3>
+                    <p>${book.author}</p>
+                `;
+                bookElement.addEventListener('click', () => openBookDetails(book));
+                container.appendChild(bookElement);
+            }
+
+            // تحديث startIndex للمرة القادمة
+            startIndex += booksPerPage;
+
+            // إذا لم يكن هناك المزيد لعرضه، إخفاء زر "المزيد"
+            if (startIndex >= allBooks.length) {
+                document.getElementById('load-more-button').style.display = 'none';
+                const noMoreBooksMessage = document.createElement('p');
+                noMoreBooksMessage.className = 'no-more-books-message';
+                noMoreBooksMessage.textContent = 'لا يوجد المزيد لعرضه.';
+                document.getElementById('load-more-container').appendChild(noMoreBooksMessage);
+            }
+
+            buttonLoading.classList.remove('visible'); // إخفاء صورة الانتظار في الزر
+        }
+
+        // فتح تفاصيل الكتاب
+        function openBookDetails(book) {
+            const queryString = new URLSearchParams(book).toString();
+            window.location.href = `view.html?${queryString}`;
+        }
+
+        // بدء جلب الكتب الأولى
+        fetchBooks();
+
+        // إضافة مستمع الحدث إلى زر "المزيد"
+        document.getElementById('load-more-button').addEventListener('click', displayBooks);
+    </script>
+</body>
+</html>
