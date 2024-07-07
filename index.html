@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>معرض الكتب</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            direction: rtl;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            margin: 20px;
+        }
+        .container {
+            display: grid;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
+        }
+        .book {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            background-color: #fff;
+            overflow: hidden;
+            position: relative;
+        }
+        .book img {
+            width: 100%;
+            height: 450px; /* ارتفاع ثابت للصورة */
+            object-fit: cover; /* حافظ على أبعاد الصورة بدون قص */
+            border-bottom: 1px solid #ddd;
+        }
+        .book:hover {
+            transform: scale(1.05);
+        }
+        .book:hover h3 {
+            color: orange; /* تلوين اسم الكتاب باللون البرتقالي عند التمرير */
+        }
+        .book h3 {
+            margin: 10px 0;
+        }
+        .book p {
+            margin: 0 10px 10px;
+        }
+        .rating-container {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0) 100%);
+            padding: 5px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 50%;
+            z-index: 1;
+            color: white; /* لون النص أبيض */
+        }
+        .stars img {
+            width: 20px;
+            height: 20px;
+        }
+        .stars span {
+            margin-left: 5px;
+            color: white; /* لون النص أبيض */
+            font-size: 16px;
+        }
+        /* تعريف عدد الأعمدة بناءً على حجم الشاشة */
+        @media (max-width: 440px) {
+            .container {
+                grid-template-columns: 1fr; /* عمود واحد */
+            }
+        }
+        @media (min-width: 441px) and (max-width: 880px) {
+            .container {
+                grid-template-columns: repeat(2, 1fr); /* عمودين */
+            }
+        }
+        @media (min-width: 881px) {
+            .container {
+                grid-template-columns: repeat(3, 1fr); /* 3 أعمدة */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>معرض الكتب</h1>
+    <div class="container" id="books-container">
+        <!-- سيتم إضافة الكتب هنا بواسطة JavaScript -->
+    </div>
+    <script>
+        // الرابط لجلب البيانات من Google Sheets
+        const url = 'https://sheets.googleapis.com/v4/spreadsheets/1lVbvdEOsFkL9-agAS_EuS2mZn8Wd343Gw8uc8Pe4Bto/values/Data!A1:L1000?key=AIzaSyBhiqVypmyLHYPmqZYtvdSvxEopcLZBdYU';
+
+        // جلب البيانات
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                // استخراج العناوين
+                const headers = data.values[0];
+                
+                // إيجاد الفهارس المناسبة لكل من عنوان الكتاب، صورة الغلاف، واسم الكاتب، وتقييم الزوار
+                const titleIndex = headers.indexOf("عنوان_الكتاب");
+                const coverIndex = headers.indexOf("صورةالغلاف");
+                const authorIndex = headers.indexOf("اسم_الكاتب");
+                const ratingIndex = headers.indexOf("تقييم_الزوار");
+
+                // استخراج القيم
+                const values = data.values.slice(1);
+
+                // تحديد العنصر HTML الذي سيتم إضافة الكتب فيه
+                const container = document.getElementById('books-container');
+
+                // تحويل التقييم إلى نجوم
+                function convertRatingToStars(rating) {
+                    const fullStars = Math.floor(rating);
+                    const halfStar = (rating - fullStars) >= 0.5;
+
+                    let starsHTML = '';
+                    for (let i = 0; i < fullStars; i++) {
+                        starsHTML += `<img src="https://kimoooc.github.io/dd/icon/star.png" alt="نجمة ممتلئة"/>`;
+                    }
+                    if (halfStar) {
+                        starsHTML += `<img src="https://kimoooc.github.io/dd/icon/halfStar.png" alt="نجمة نصف ممتلئة"/>`;
+                    }
+                    const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+                    for (let i = 0; i < emptyStars; i++) {
+                        starsHTML += `<img src="https://kimoooc.github.io/dd/icon/VidStar.png" alt="نجمة فارغة"/>`;
+                    }
+                    return starsHTML;
+                }
+
+                // إضافة الكتب إلى الصفحة
+                values.forEach(row => {
+                    const title = row[titleIndex];
+                    const cover = row[coverIndex];
+                    const author = row[authorIndex];
+                    const rating = parseFloat(row[ratingIndex]); // تحويل التقييم إلى عدد عشري
+
+                    const bookElement = document.createElement('div');
+                    bookElement.className = 'book';
+                    bookElement.innerHTML = `
+                        <img src="${cover}" alt="${title}"/>
+                        <div class="rating-container">
+                            <div class="stars">${convertRatingToStars(rating)}</div>
+                            <span>${rating}</span>
+                        </div>
+                        <h3>${title}</h3>
+                        <p>${author}</p>
+                    `;
+                    container.appendChild(bookElement);
+                });
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    </script>
+</body>
+</html>
