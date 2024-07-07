@@ -96,15 +96,14 @@
             }
         }
 
-        /* نمط لصورة الانتظار */
         .loading-spinner {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh; /* يشغل الارتفاع الكامل للشاشة */
         }
-            .loading-spinner img{
-             width: 100px;
+        .loading-spinner img{
+            width: 100px;
         }
     </style>
 </head>
@@ -119,6 +118,10 @@
         <div class="book-info" id="book-info">
             <!-- سيتم إضافة معلومات الكتاب هنا بواسطة JavaScript -->
         </div>
+    </div>
+    <div class="summary">
+        <h2>الملخص:</h2>
+        <p id="book-summary"></p>
     </div>
     <div class="review">
         <h2>مراجعة الكتاب:</h2>
@@ -152,34 +155,62 @@
             return starsHTML;
         }
 
-        // جلب معلومات الكتاب من URL
+        // جلب معلومات الكتاب من Google Sheets
         function fetchBookDetails() {
             const params = new URLSearchParams(window.location.search);
-            const book = {
-                title: params.get('title'),
-                cover: params.get('cover'),
-                author: params.get('author'),
-                rating: parseFloat(params.get('rating'))
-            };
+            const bookTitle = params.get('title');
 
-            document.getElementById('book-cover').innerHTML = `<img src="${book.cover}" alt="${book.title}"/>`;
-            document.getElementById('book-info').innerHTML = `
-                <h1>${book.title}</h1>
-                <p><strong>الكاتب:<br></strong> ${book.author}</p>
-                <p><strong>التقييم:<br></strong> ${convertRatingToStars(book.rating)}</p>
-            `;
-            document.getElementById('book-rating').innerHTML = convertRatingToStars(book.rating);
+            const url = 'https://sheets.googleapis.com/v4/spreadsheets/1lVbvdEOsFkL9-agAS_EuS2mZn8Wd343Gw8uc8Pe4Bto/values/Data!A1:L1000?key=AIzaSyBhiqVypmyLHYPmqZYtvdSvxEopcLZBdYU';
 
-            // إخفاء صورة الانتظار وإظهار تفاصيل الكتاب
-            document.getElementById('loading-spinner').style.display = 'none';
-            document.getElementById('book-details').style.display = 'flex';
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const headers = data.values[0];
+                    const bookData = data.values.slice(1).find(row => row[headers.indexOf("عنوان_الكتاب")] === bookTitle);
+
+                    if (bookData) {
+                        const book = {
+                            date: bookData[headers.indexOf("تاريخ المراجعة")],
+                            title: bookData[headers.indexOf("عنوان_الكتاب")],
+                            cover: bookData[headers.indexOf("صورةالغلاف")],
+                            author: bookData[headers.indexOf("اسم_الكاتب")],
+                            pages: bookData[headers.indexOf("عدد_الصفحات")],
+                            genre: bookData[headers.indexOf("النوع")],
+                            releaseDate: bookData[headers.indexOf("تاريخ_الاصدار")],
+                            rating: parseFloat(bookData[headers.indexOf("التقييم")]),
+                            summary: bookData[headers.indexOf("الملخص")],
+                            review: bookData[headers.indexOf("مراجعتي")],
+                            quotes: bookData[headers.indexOf("مقتطفات")],
+                            visitorRating: parseFloat(bookData[headers.indexOf("تقييم_الزوار")])
+                        };
+
+                        document.getElementById('book-cover').innerHTML = `<img src="${book.cover}" alt="${book.title}"/>`;
+                        document.getElementById('book-info').innerHTML = `
+                            <h1>${book.title}</h1>
+                            <p><strong>الكاتب:<br></strong> ${book.author}</p>
+                            <p><strong>عدد الصفحات:<br></strong> ${book.pages}</p>
+                            <p><strong>النوع:<br></strong> ${book.genre}</p>
+                            <p><strong>تاريخ الإصدار:<br></strong> ${book.releaseDate}</p>
+                            <p><strong>التقييم:<br></strong> ${convertRatingToStars(book.rating)}</p>
+                            <p><strong>مقتطفات:<br></strong> ${book.quotes}</p>
+                        `;
+                        document.getElementById('book-summary').textContent = book.summary;
+                        document.getElementById('book-review').textContent = book.review;
+                        document.getElementById('book-rating').innerHTML = convertRatingToStars(book.visitorRating);
+                    }
+
+                    // إخفاء صورة الانتظار وإظهار تفاصيل الكتاب
+                    document.getElementById('loading-spinner').style.display = 'none';
+                    document.getElementById('book-details').style.display = 'flex';
+                })
+                .catch(error => console.error('Error fetching data:', error));
         }
 
         // إرسال التقييم
         function submitRating() {
             const stars = document.querySelector('.stars').innerText;
             const comment = document.querySelector('textarea').value;
-            
+
             if (comment) {
                 alert(`شكراً لتقييمك!\n\nالتقييم: ${stars}\nالتعليق: ${comment}`);
             } else {
